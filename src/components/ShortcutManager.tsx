@@ -1,143 +1,205 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { PlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline'
-import { CalculatorHook } from '@/hooks/useCalculator'
-import { CreateShortcutForm } from './CreateShortcutForm'
-import type { Shortcut } from '@/types/calculator'
+import { useState } from "react";
+import { Plus, Trash2, Play } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { type Shortcut } from "@/types/shortcut";
+import { type ActionResult } from "@/types/common";
 
 interface ShortcutManagerProps {
-  calculator: CalculatorHook
+  shortcuts: Shortcut[];
+  onCreateShortcut: (name: string, formula: string) => Promise<ActionResult<Shortcut>>;
+  onDeleteShortcut: (id: string) => ActionResult<void>;
+  onExecuteShortcut: (id: string, value: number) => ActionResult<number>;
 }
 
-export function ShortcutManager({ calculator }: ShortcutManagerProps) {
-  const [showCreateForm, setShowCreateForm] = useState(false)
-  const [editingShortcut, setEditingShortcut] = useState<Shortcut | null>(null)
-  const [testValues, setTestValues] = useState<Record<string, string>>({})
+export function ShortcutManager({
+  shortcuts,
+  onCreateShortcut,
+  onDeleteShortcut,
+  onExecuteShortcut
+}: ShortcutManagerProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newFormula, setNewFormula] = useState('');
+  const [executionValues, setExecutionValues] = useState<Record<string, string>>({});
+  const [results, setResults] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string>('');
 
-  const handleTestShortcut = (shortcut: Shortcut) => {
-    const value = testValues[shortcut.id]
-    if (value) {
-      const result = calculator.executeShortcut(shortcut.id, parseFloat(value))
-      if (result !== null) {
-        calculator.setDisplay(result.toString())
-      }
+  const handleCreateShortcut = async () => {
+    if (!newName.trim() || !newFormula.trim()) {
+      setError('Name and formula are required');
+      return;
     }
-  }
+
+    try {
+      const result = await onCreateShortcut(newName.trim(), newFormula.trim());
+      if (result.success) {
+        setNewName('');
+        setNewFormula('');
+        setIsCreating(false);
+        setError('');
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Failed to create shortcut');
+    }
+  };
 
   const handleDeleteShortcut = (id: string) => {
-    if (confirm('Are you sure you want to delete this shortcut?')) {
-      calculator.deleteShortcut(id)
+    const result = onDeleteShortcut(id);
+    if (!result.success) {
+      setError(result.error);
     }
-  }
+  };
+
+  const handleExecuteShortcut = (id: string) => {
+    const value = parseFloat(executionValues[id] || '0');
+    if (isNaN(value)) {
+      setError('Please enter a valid number');
+      return;
+    }
+
+    const result = onExecuteShortcut(id, value);
+    if (result.success) {
+      setResults({ ...results, [id]: result.data });
+      setError('');
+    } else {
+      setError(result.error);
+    }
+  };
+
+  const handleValueChange = (id: string, value: string) => {
+    setExecutionValues({ ...executionValues, [id]: value });
+    // Clear result when value changes
+    if (results[id] !== undefined) {
+      const newResults = { ...results };
+      delete newResults[id];
+      setResults(newResults);
+    }
+  };
 
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-gray-900">
-          Custom Shortcuts
-        </h2>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New Shortcut
-        </button>
-      </div>
-
-      {showCreateForm && (
-        <div className="mb-6">
-          <CreateShortcutForm
-            calculator={calculator}
-            editingShortcut={editingShortcut}
-            onClose={() => {
-              setShowCreateForm(false)
-              setEditingShortcut(null)
-            }}
-          />
+      {/* Error Message */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          {error}
         </div>
       )}
 
+      {/* Create New Shortcut */}
+      <div className="mb-6">
+        {!isCreating ? (
+          <Button
+            onClick={() => setIsCreating(true)}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            Create New Shortcut
+          </Button>
+        ) : (
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <h3 className="font-medium mb-3">Create New Shortcut</h3>
+            <div className="space-y-3">
+              <Input
+                placeholder="Shortcut name (e.g., 'bakery pricing')"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="w-full"
+              />
+              <Input
+                placeholder="Formula (e.g., 'x * 1.65' where x is the input)"
+                value={newFormula}
+                onChange={(e) => setNewFormula(e.target.value)}
+                className="w-full"
+              />
+              <div className="text-xs text-gray-600">
+                Use 'x' as the variable in your formula. Supported operators: +, -, *, /
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleCreateShortcut}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Create
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsCreating(false);
+                    setNewName('');
+                    setNewFormula('');
+                    setError('');
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-black"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Shortcuts List */}
       <div className="space-y-4">
-        {calculator.shortcuts.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">No shortcuts created yet</p>
-            <p className="text-sm text-gray-400">
-              Create shortcuts for calculations you do frequently
-            </p>
+        {shortcuts.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <p>No shortcuts created yet</p>
+            <p className="text-sm mt-1">Create one above or use voice commands</p>
           </div>
         ) : (
-          calculator.shortcuts.map((shortcut) => (
-            <div key={shortcut.id} className="shortcut-card">
-              <div className="flex items-start justify-between mb-3">
+          shortcuts.map((shortcut) => (
+            <div key={shortcut.id} className="border rounded-lg p-4 bg-white shadow-sm">
+              <div className="flex justify-between items-start mb-3">
                 <div>
-                  <h3 className="font-medium text-gray-900 capitalize">
-                    {shortcut.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 font-mono">
-                    {shortcut.formula}
-                  </p>
+                  <h3 className="font-medium text-lg">{shortcut.name}</h3>
+                  <p className="text-sm text-gray-600">Formula: {shortcut.formula}</p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingShortcut(shortcut)
-                      setShowCreateForm(true)
-                    }}
-                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                    aria-label="Edit shortcut"
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteShortcut(shortcut.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                    aria-label="Delete shortcut"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Enter value"
-                  value={testValues[shortcut.id] || ''}
-                  onChange={(e) => setTestValues(prev => ({
-                    ...prev,
-                    [shortcut.id]: e.target.value
-                  }))}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={() => handleTestShortcut(shortcut)}
-                  disabled={!testValues[shortcut.id]}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                <Button
+                  onClick={() => handleDeleteShortcut(shortcut.id)}
+                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2"
+                  aria-label="Delete shortcut"
                 >
-                  Calculate
-                </button>
+                  <Trash2 size={16} />
+                </Button>
               </div>
+
+              {/* Execution Section */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-sm text-gray-600 mb-1">Input value:</label>
+                  <Input
+                    type="number"
+                    placeholder="Enter number"
+                    value={executionValues[shortcut.id] || ''}
+                    onChange={(e) => handleValueChange(shortcut.id, e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <Button
+                  onClick={() => handleExecuteShortcut(shortcut.id)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white p-3"
+                  aria-label="Execute shortcut"
+                >
+                  <Play size={16} />
+                </Button>
+              </div>
+
+              {/* Result */}
+              {results[shortcut.id] !== undefined && (
+                <div className="mt-3 p-3 bg-green-100 border border-green-300 rounded-lg">
+                  <span className="font-medium text-green-800">
+                    Result: {results[shortcut.id]}
+                  </span>
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
-
-      {calculator.shortcuts.length > 0 && (
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-medium text-blue-900 mb-2">Voice Commands</h3>
-          <div className="space-y-1 text-sm text-blue-700">
-            {calculator.shortcuts.map(shortcut => (
-              <div key={shortcut.id}>
-                "
-                <span className="font-mono capitalize">{shortcut.name}</span>
-                {' '}[number]"
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
-  )
+  );
 }

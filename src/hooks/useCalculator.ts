@@ -1,208 +1,114 @@
-'use client'
+"use client";
 
-import { useState, useCallback, useEffect } from 'react'
-import type { Shortcut } from '@/types/calculator'
+import { useState, useCallback } from "react";
 
-export interface CalculatorHook {
-  display: string
-  shortcuts: Shortcut[]
-  isCreatingShortcut: boolean
-  pendingShortcutName: string | null
-  clear: () => void
-  inputNumber: (num: string) => void
-  inputOperator: (op: string) => void
-  inputDecimal: () => void
-  inputExpression: (expression: string) => void
-  calculate: () => void
-  toggleSign: () => void
-  percentage: () => void
-  setDisplay: (value: string) => void
-  createShortcut: (name: string, formula: string) => void
-  updateShortcut: (id: string, updates: Partial<Shortcut>) => void
-  deleteShortcut: (id: string) => void
-  executeShortcut: (id: string, value: number) => number | null
-  startShortcutCreation: (name: string) => void
-}
-
-export function useCalculator(): CalculatorHook {
-  const [display, setDisplay] = useState('0')
-  const [previousValue, setPreviousValue] = useState<number | null>(null)
-  const [operation, setOperation] = useState<string | null>(null)
-  const [waitingForOperand, setWaitingForOperand] = useState(false)
-  const [shortcuts, setShortcuts] = useState<Shortcut[]>([])
-  const [isCreatingShortcut, setIsCreatingShortcut] = useState(false)
-  const [pendingShortcutName, setPendingShortcutName] = useState<string | null>(null)
-
-  // Load shortcuts from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedShortcuts = localStorage.getItem('calculator-shortcuts')
-      if (savedShortcuts) {
-        setShortcuts(JSON.parse(savedShortcuts))
-      }
-    } catch (error) {
-      console.error('Failed to load shortcuts:', error)
-    }
-  }, [])
-
-  // Save shortcuts to localStorage when they change
-  useEffect(() => {
-    try {
-      localStorage.setItem('calculator-shortcuts', JSON.stringify(shortcuts))
-    } catch (error) {
-      console.error('Failed to save shortcuts:', error)
-    }
-  }, [shortcuts])
-
-  const clear = useCallback(() => {
-    setDisplay('0')
-    setPreviousValue(null)
-    setOperation(null)
-    setWaitingForOperand(false)
-  }, [])
+export function useCalculator() {
+  const [display, setDisplay] = useState('');
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [operation, setOperation] = useState<string | null>(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
 
   const inputNumber = useCallback((num: string) => {
     if (waitingForOperand) {
-      setDisplay(num)
-      setWaitingForOperand(false)
+      setDisplay(num);
+      setWaitingForOperand(false);
     } else {
-      setDisplay(display === '0' ? num : display + num)
+      setDisplay(display === '0' ? num : display + num);
     }
-  }, [display, waitingForOperand])
-
-  const inputOperator = useCallback((nextOperation: string) => {
-    const inputValue = parseFloat(display)
-
-    if (previousValue === null) {
-      setPreviousValue(inputValue)
-    } else if (operation) {
-      const currentValue = previousValue || 0
-      const newValue = performCalculation(currentValue, inputValue, operation)
-
-      setDisplay(String(newValue))
-      setPreviousValue(newValue)
-    }
-
-    setWaitingForOperand(true)
-    setOperation(nextOperation)
-  }, [display, previousValue, operation])
+  }, [display, waitingForOperand]);
 
   const inputDecimal = useCallback(() => {
     if (waitingForOperand) {
-      setDisplay('0.')
-      setWaitingForOperand(false)
+      setDisplay('0.');
+      setWaitingForOperand(false);
     } else if (display.indexOf('.') === -1) {
-      setDisplay(display + '.')
+      setDisplay(display + '.');
     }
-  }, [display, waitingForOperand])
+  }, [display, waitingForOperand]);
 
-  const inputExpression = useCallback((expression: string) => {
-    setDisplay(expression)
-    setWaitingForOperand(false)
-  }, [])
+  const clear = useCallback(() => {
+    setDisplay('');
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForOperand(false);
+  }, []);
 
-  const calculate = useCallback(() => {
-    const inputValue = parseFloat(display)
+  const performOperation = useCallback((nextOperation: string) => {
+    const inputValue = parseFloat(display || '0');
 
-    if (previousValue !== null && operation) {
-      const newValue = performCalculation(previousValue, inputValue, operation)
-      setDisplay(String(newValue))
-      setPreviousValue(null)
-      setOperation(null)
-      setWaitingForOperand(true)
-    }
-  }, [display, previousValue, operation])
+    if (previousValue === null) {
+      setPreviousValue(inputValue);
+    } else if (operation) {
+      const currentValue = previousValue || 0;
+      let result: number;
 
-  const toggleSign = useCallback(() => {
-    if (display !== '0') {
-      setDisplay(display.charAt(0) === '-' ? display.slice(1) : '-' + display)
-    }
-  }, [display])
-
-  const percentage = useCallback(() => {
-    const value = parseFloat(display)
-    setDisplay(String(value / 100))
-  }, [display])
-
-  const performCalculation = (firstOperand: number, secondOperand: number, operation: string): number => {
-    switch (operation) {
-      case '+':
-        return firstOperand + secondOperand
-      case '-':
-        return firstOperand - secondOperand
-      case '*':
-        return firstOperand * secondOperand
-      case '/':
-        return firstOperand / secondOperand
-      default:
-        return secondOperand
-    }
-  }
-
-  const createShortcut = useCallback((name: string, formula: string) => {
-    const newShortcut: Shortcut = {
-      id: crypto.randomUUID(),
-      name,
-      formula,
-      createdAt: Date.now()
-    }
-    setShortcuts(prev => [...prev, newShortcut])
-    setIsCreatingShortcut(false)
-    setPendingShortcutName(null)
-  }, [])
-
-  const updateShortcut = useCallback((id: string, updates: Partial<Shortcut>) => {
-    setShortcuts(prev => prev.map(shortcut => 
-      shortcut.id === id ? { ...shortcut, ...updates } : shortcut
-    ))
-  }, [])
-
-  const deleteShortcut = useCallback((id: string) => {
-    setShortcuts(prev => prev.filter(shortcut => shortcut.id !== id))
-  }, [])
-
-  const executeShortcut = useCallback((id: string, value: number): number | null => {
-    const shortcut = shortcuts.find(s => s.id === id)
-    if (!shortcut) return null
-
-    try {
-      // Replace 'x' with the actual value and evaluate
-      const formula = shortcut.formula.replace(/x/g, String(value))
-      const result = Function(`"use strict"; return (${formula})`)()
-      
-      if (typeof result === 'number' && isFinite(result)) {
-        return Math.round(result * 100) / 100 // Round to 2 decimal places
+      switch (operation) {
+        case '+':
+          result = currentValue + inputValue;
+          break;
+        case '-':
+          result = currentValue - inputValue;
+          break;
+        case '*':
+          result = currentValue * inputValue;
+          break;
+        case '/':
+          result = inputValue !== 0 ? currentValue / inputValue : 0;
+          break;
+        default:
+          return;
       }
-      return null
-    } catch (error) {
-      console.error('Error executing shortcut:', error)
-      return null
-    }
-  }, [shortcuts])
 
-  const startShortcutCreation = useCallback((name: string) => {
-    setIsCreatingShortcut(true)
-    setPendingShortcutName(name)
-  }, [])
+      setDisplay(result.toString());
+      setPreviousValue(result);
+    }
+
+    setWaitingForOperand(true);
+    setOperation(nextOperation);
+  }, [display, previousValue, operation]);
+
+  const calculate = useCallback((expression?: string) => {
+    if (expression) {
+      try {
+        // Simple expression evaluation for voice commands
+        const result = Function('"use strict"; return (' + expression + ')')();
+        setDisplay(result.toString());
+        return result;
+      } catch (error) {
+        setDisplay('Error');
+        return 0;
+      }
+    } else {
+      performOperation('=');
+    }
+  }, [performOperation]);
+
+  const handleInput = useCallback((value: string) => {
+    if (/\d/.test(value)) {
+      inputNumber(value);
+    } else if (value === '.') {
+      inputDecimal();
+    } else if (['+', '-', '*', '/'].includes(value)) {
+      performOperation(value);
+    } else if (value === 'negate') {
+      const currentValue = parseFloat(display || '0');
+      setDisplay((-currentValue).toString());
+    } else if (value === '%') {
+      const currentValue = parseFloat(display || '0');
+      setDisplay((currentValue / 100).toString());
+    }
+  }, [inputNumber, inputDecimal, performOperation, display]);
+
+  const equals = useCallback(() => {
+    calculate();
+  }, [calculate]);
 
   return {
     display,
-    shortcuts,
-    isCreatingShortcut,
-    pendingShortcutName,
-    clear,
-    inputNumber,
-    inputOperator,
-    inputDecimal,
-    inputExpression,
-    calculate,
-    toggleSign,
-    percentage,
     setDisplay,
-    createShortcut,
-    updateShortcut,
-    deleteShortcut,
-    executeShortcut,
-    startShortcutCreation
-  }
+    handleInput,
+    clear,
+    equals,
+    calculate
+  };
 }

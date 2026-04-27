@@ -1,11 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable PWA features
   experimental: {
-    optimizePackageImports: ['@heroicons/react']
+    webVitalsAttribution: ['CLS', 'LCP']
   },
-  typescript: {
-    tsconfigPath: './tsconfig.json'
+  // Optimize for mobile performance
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+  },
+  // Enable service worker for PWA
+  headers: async () => {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          }
+        ]
+      }
+    ];
   }
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
