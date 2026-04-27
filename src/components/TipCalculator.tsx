@@ -53,7 +53,7 @@ export function TipCalculator() {
 
   const addStaffMember = () => {
     const newMember: StaffMember = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       name: '',
       hoursWorked: ''
     }
@@ -71,6 +71,11 @@ export function TipCalculator() {
   const removeStaffMember = (id: string) => {
     setStaffMembers(prev => prev.filter(member => member.id !== id))
     setResults([]) // Clear results when staff changes
+  }
+
+  // Simple ID generator for client-side
+  const generateId = () => {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2)
   }
 
   return (
