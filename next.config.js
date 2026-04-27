@@ -1,27 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable PWA features
   experimental: {
-    webVitalsAttribution: ['CLS', 'LCP']
+    optimizePackageImports: ['react-icons']
   },
-  // Optimize for mobile performance
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production'
-  },
-  // Enable service worker for PWA
-  headers: async () => {
+  async headers() {
     return [
       {
-        source: '/:path*',
+        source: '/(.*)',
         headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff'
           }
         ]
       }
-    ];
+    ]
   }
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

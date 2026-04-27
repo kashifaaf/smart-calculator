@@ -1,114 +1,83 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useCallback } from "react";
-import { type Shortcut } from "@/types/shortcut";
-import { type ActionResult } from "@/types/common";
+import { useState, useEffect, useCallback } from 'react'
+import { Shortcut } from '@/types/shortcut'
 
 export function useShortcuts() {
-  const [shortcuts, setShortcuts] = useState<Shortcut[]>([]);
+  const [shortcuts, setShortcuts] = useState<Shortcut[]>([])
 
-  // Load shortcuts from localStorage on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    // Load shortcuts from localStorage
+    const saved = localStorage.getItem('calculator-shortcuts')
+    if (saved) {
       try {
-        const stored = localStorage.getItem('calculator-shortcuts');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          setShortcuts(Array.isArray(parsed) ? parsed : []);
-        }
+        setShortcuts(JSON.parse(saved))
       } catch (error) {
-        console.error('Failed to load shortcuts:', error);
+        console.error('Failed to parse saved shortcuts:', error)
       }
     }
-  }, []);
+  }, [])
 
-  // Save shortcuts to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('calculator-shortcuts', JSON.stringify(shortcuts));
-      } catch (error) {
-        console.error('Failed to save shortcuts:', error);
-      }
+  const saveShortcuts = useCallback((newShortcuts: Shortcut[]) => {
+    setShortcuts(newShortcuts)
+    localStorage.setItem('calculator-shortcuts', JSON.stringify(newShortcuts))
+  }, [])
+
+  const addShortcut = useCallback((shortcut: Omit<Shortcut, 'id' | 'createdAt'>) => {
+    const newShortcut: Shortcut = {
+      ...shortcut,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
     }
-  }, [shortcuts]);
+    const newShortcuts = [...shortcuts, newShortcut]
+    saveShortcuts(newShortcuts)
+    return newShortcut
+  }, [shortcuts, saveShortcuts])
 
-  const createShortcut = useCallback(async (name: string, formula: string): Promise<ActionResult<Shortcut>> => {
+  const deleteShortcut = useCallback((id: string) => {
+    const newShortcuts = shortcuts.filter(s => s.id !== id)
+    saveShortcuts(newShortcuts)
+  }, [shortcuts, saveShortcuts])
+
+  const findByName = useCallback((name: string): Shortcut | undefined => {
+    return shortcuts.find(s => 
+      s.name.toLowerCase() === name.toLowerCase() ||
+      s.name.toLowerCase().includes(name.toLowerCase())
+    )
+  }, [shortcuts])
+
+  const executeShortcut = useCallback((id: string, params: string): number => {
+    const shortcut = shortcuts.find(s => s.id === id)
+    if (!shortcut) {
+      throw new Error('Shortcut not found')
+    }
+
     try {
-      // Validate formula by trying to parse it
-      const testFormula = formula.toLowerCase().replace(/x/g, '1');
-      try {
-        Function('"use strict"; return (' + testFormula + ')')();
-      } catch {
-        return { success: false, error: 'Invalid formula. Use x as the variable and basic operators (+, -, *, /)' };
-      }
-
-      // Check for duplicate names
-      if (shortcuts.some(s => s.name.toLowerCase() === name.toLowerCase())) {
-        return { success: false, error: 'A shortcut with this name already exists' };
-      }
-
-      const newShortcut: Shortcut = {
-        id: crypto.randomUUID(),
-        name,
-        formula,
-        createdAt: Date.now()
-      };
-
-      setShortcuts(prev => [...prev, newShortcut]);
-      return { success: true, data: newShortcut };
-    } catch (error) {
-      return { success: false, error: 'Failed to create shortcut' };
-    }
-  }, [shortcuts]);
-
-  const deleteShortcut = useCallback((id: string): ActionResult<void> => {
-    try {
-      setShortcuts(prev => prev.filter(s => s.id !== id));
-      return { success: true, data: undefined };
-    } catch (error) {
-      return { success: false, error: 'Failed to delete shortcut' };
-    }
-  }, []);
-
-  const executeShortcut = useCallback((id: string, value: number): ActionResult<number> => {
-    try {
-      const shortcut = shortcuts.find(s => s.id === id);
-      if (!shortcut) {
-        return { success: false, error: 'Shortcut not found' };
-      }
-
-      // Replace x with the actual value and evaluate
-      const expression = shortcut.formula.toLowerCase().replace(/x/g, value.toString());
+      // Replace 'x' with the parameter value
+      const formula = shortcut.formula.replace(/x/g, params)
       
-      try {
-        const result = Function('"use strict"; return (' + expression + ')')();
-        
-        if (typeof result !== 'number' || !isFinite(result)) {
-          return { success: false, error: 'Formula produced invalid result' };
-        }
-        
-        return { success: true, data: result };
-      } catch {
-        return { success: false, error: 'Error evaluating formula' };
+      // Basic safety check
+      if (!/^[\d\s+\-*/.()]+$/.test(formula)) {
+        throw new Error('Invalid formula')
       }
+      
+      const result = Function('"use strict"; return (' + formula + ')')()
+      
+      if (typeof result !== 'number' || !isFinite(result)) {
+        throw new Error('Invalid calculation result')
+      }
+      
+      return result
     } catch (error) {
-      return { success: false, error: 'Failed to execute shortcut' };
+      throw new Error('Could not execute shortcut')
     }
-  }, [shortcuts]);
-
-  const findShortcutByCommand = useCallback((command: string): Shortcut | null => {
-    const lowerCommand = command.toLowerCase();
-    return shortcuts.find(shortcut => 
-      lowerCommand.includes(shortcut.name.toLowerCase())
-    ) || null;
-  }, [shortcuts]);
+  }, [shortcuts])
 
   return {
     shortcuts,
-    createShortcut,
+    addShortcut,
     deleteShortcut,
-    executeShortcut,
-    findShortcutByCommand
-  };
+    findByName,
+    executeShortcut
+  }
 }
