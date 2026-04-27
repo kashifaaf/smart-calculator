@@ -1,113 +1,69 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { Display } from './Display'
-import { Keypad } from './Keypad'
-import { VoiceButton } from './VoiceButton'
-import { ShortcutManager } from './ShortcutManager'
-import { useCalculator } from '@/hooks/useCalculator'
-import { useVoice } from '@/hooks/useVoice'
-import { useShortcuts } from '@/hooks/useShortcuts'
+import { useState, useCallback } from 'react';
+import { Display } from './Display';
+import { Keypad } from './Keypad';
+import { VoiceInput } from './VoiceInput';
+import { ShortcutManager } from './ShortcutManager';
+import { useCalculator } from '@/hooks/useCalculator';
+import { useVoiceCommands } from '@/hooks/useVoiceCommands';
+import { useShortcuts } from '@/hooks/useShortcuts';
 
 export function Calculator() {
-  const [showShortcuts, setShowShortcuts] = useState(false)
-  const calculator = useCalculator()
-  const shortcuts = useShortcuts()
-  const voice = useVoice({
-    onCommand: (command) => handleVoiceCommand(command),
-    onResult: (result) => calculator.setDisplay(result)
-  })
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const calculator = useCalculator();
+  const shortcuts = useShortcuts();
+  const voiceCommands = useVoiceCommands(calculator, shortcuts);
 
-  const handleVoiceCommand = (command: string) => {
-    const lowerCommand = command.toLowerCase().trim()
-    
-    // Check for shortcut creation
-    if (lowerCommand.includes('create shortcut')) {
-      const nameMatch = lowerCommand.match(/create shortcut (?:called )?(.*?)(?:\s|$)/)
-      if (nameMatch && nameMatch[1]) {
-        voice.startShortcutCreation(nameMatch[1])
-        return
-      }
-    }
-    
-    // Check for shortcut execution
-    const shortcut = shortcuts.findByName(lowerCommand.split(' ')[0])
-    if (shortcut) {
-      const params = lowerCommand.split(' ').slice(1).join(' ')
-      try {
-        const result = shortcuts.executeShortcut(shortcut.id, params)
-        calculator.setDisplay(result.toString())
-        voice.speak(`Result is ${result}`)
-      } catch (error) {
-        voice.speak('Error executing shortcut')
-      }
-      return
-    }
-    
-    // Handle basic calculations
-    try {
-      const result = calculator.evaluateExpression(command)
-      calculator.setDisplay(result.toString())
-      voice.speak(`Result is ${result}`)
-    } catch (error) {
-      voice.speak('Could not calculate that')
-    }
-  }
+  const handleVoiceResult = useCallback((transcript: string) => {
+    voiceCommands.processCommand(transcript);
+  }, [voiceCommands]);
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-      <div className="p-6 space-y-6">
-        <Display 
-          value={calculator.display}
-          expression={calculator.expression}
+    <div className="max-w-md mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6">
+      <Display 
+        value={calculator.display} 
+        operation={calculator.operation}
+        isLoading={voiceCommands.isProcessing}
+      />
+      
+      <div className="mt-6">
+        <VoiceInput 
+          onResult={handleVoiceResult}
+          isListening={voiceCommands.isListening}
+          onToggleListening={voiceCommands.toggleListening}
         />
-        
-        <div className="flex gap-4">
-          <VoiceButton
-            isListening={voice.isListening}
-            isSupported={voice.isSupported}
-            onToggle={voice.toggleListening}
-          />
-          
-          <button
-            onClick={() => setShowShortcuts(!showShortcuts)}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-xl font-medium transition-colors"
-            aria-label="Toggle shortcuts"
-          >
-            {showShortcuts ? 'Hide' : 'Show'} Shortcuts
-          </button>
-        </div>
+      </div>
 
-        {voice.isCreatingShortcut && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <p className="text-blue-800 font-medium">Creating shortcut: {voice.shortcutName}</p>
-            <p className="text-blue-600 text-sm mt-1">
-              Say the formula (e.g., "ingredient cost times 1.65")
-            </p>
-          </div>
-        )}
+      <div className="mt-6 flex gap-3">
+        <button
+          onClick={() => setShowShortcuts(!showShortcuts)}
+          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+        >
+          {showShortcuts ? 'Hide' : 'Show'} Shortcuts ({shortcuts.shortcuts.length})
+        </button>
+      </div>
 
-        {showShortcuts ? (
+      {showShortcuts && (
+        <div className="mt-4">
           <ShortcutManager 
             shortcuts={shortcuts.shortcuts}
-            onDelete={shortcuts.deleteShortcut}
-            onExecute={(id, params) => {
-              try {
-                const result = shortcuts.executeShortcut(id, params)
-                calculator.setDisplay(result.toString())
-              } catch (error) {
-                console.error('Error executing shortcut:', error)
-              }
-            }}
+            onCreateShortcut={shortcuts.createShortcut}
+            onDeleteShortcut={shortcuts.deleteShortcut}
+            onExecuteShortcut={shortcuts.executeShortcut}
           />
-        ) : (
-          <Keypad
-            onButtonPress={calculator.handleInput}
-            onClear={calculator.clear}
-            onEquals={calculator.calculate}
-          />
-        )}
+        </div>
+      )}
+
+      <div className="mt-6">
+        <Keypad 
+          onNumberClick={calculator.inputNumber}
+          onOperatorClick={calculator.inputOperator}
+          onEqualsClick={calculator.calculate}
+          onClearClick={calculator.clear}
+          onDeleteClick={calculator.deleteLast}
+        />
       </div>
     </div>
-  )
+  );
 }

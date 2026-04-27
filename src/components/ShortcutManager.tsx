@@ -1,97 +1,137 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Shortcut } from '@/types/shortcut'
+import { useState } from 'react';
+import { Shortcut } from '@/types/calculator';
 
 interface ShortcutManagerProps {
-  shortcuts: Shortcut[]
-  onDelete: (id: string) => void
-  onExecute: (id: string, params: string) => void
+  shortcuts: Shortcut[];
+  onCreateShortcut: (name: string, formula: string) => void;
+  onDeleteShortcut: (id: string) => void;
+  onExecuteShortcut: (shortcut: Shortcut, value: number) => number;
 }
 
-export function ShortcutManager({ shortcuts, onDelete, onExecute }: ShortcutManagerProps) {
-  const [executingId, setExecutingId] = useState<string | null>(null)
-  const [inputValue, setInputValue] = useState('')
+export function ShortcutManager({
+  shortcuts,
+  onCreateShortcut,
+  onDeleteShortcut,
+  onExecuteShortcut,
+}: ShortcutManagerProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [newShortcutName, setNewShortcutName] = useState('');
+  const [newShortcutFormula, setNewShortcutFormula] = useState('');
+  const [executeValues, setExecuteValues] = useState<{ [key: string]: string }>({});
 
-  const handleExecute = (shortcut: Shortcut) => {
-    if (!inputValue.trim()) return
-    
-    setExecutingId(shortcut.id)
-    onExecute(shortcut.id, inputValue)
-    setInputValue('')
-    
-    setTimeout(() => setExecutingId(null), 500)
-  }
+  const handleCreateShortcut = () => {
+    if (newShortcutName.trim() && newShortcutFormula.trim()) {
+      onCreateShortcut(newShortcutName.trim(), newShortcutFormula.trim());
+      setNewShortcutName('');
+      setNewShortcutFormula('');
+      setIsCreating(false);
+    }
+  };
 
-  if (shortcuts.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-gray-400 mb-4">
-          <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Shortcuts Yet</h3>
-        <p className="text-gray-600 mb-4">Create shortcuts using voice commands</p>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
-          <p className="text-blue-800 font-medium mb-2">Try saying:</p>
-          <ul className="text-blue-700 text-sm space-y-1">
-            <li>"Create shortcut called bakery pricing"</li>
-            <li>"Create shortcut daily split"</li>
-          </ul>
-        </div>
-      </div>
-    )
-  }
+  const handleExecuteShortcut = (shortcut: Shortcut) => {
+    const value = parseFloat(executeValues[shortcut.id] || '0');
+    if (!isNaN(value)) {
+      const result = onExecuteShortcut(shortcut, value);
+      // Speak the result if speech synthesis is available
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(
+          `Result: ${result.toFixed(2)}`
+        );
+        speechSynthesis.speak(utterance);
+      }
+    }
+  };
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Your Shortcuts</h3>
-      
-      <div className="space-y-3">
-        {shortcuts.map((shortcut) => (
-          <div key={shortcut.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                <h4 className="font-medium text-gray-900 capitalize">{shortcut.name}</h4>
-                <p className="text-sm text-gray-600 mt-1">Formula: {shortcut.formula}</p>
-              </div>
-              <button
-                onClick={() => onDelete(shortcut.id)}
-                className="ml-2 p-1 text-red-500 hover:text-red-700 transition-colors"
-                aria-label={`Delete ${shortcut.name} shortcut`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Enter value"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                aria-label={`Input value for ${shortcut.name}`}
-              />
-              <button
-                onClick={() => handleExecute(shortcut)}
-                disabled={!inputValue.trim() || executingId === shortcut.id}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  executingId === shortcut.id
-                    ? 'bg-green-500 text-white'
-                    : 'bg-blue-500 hover:bg-blue-600 text-white disabled:bg-gray-300 disabled:text-gray-500'
-                }`}
-                aria-label={`Execute ${shortcut.name} shortcut`}
-              >
-                {executingId === shortcut.id ? '✓' : 'Calculate'}
-              </button>
-            </div>
-          </div>
-        ))}
+    <div className="bg-gray-700 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white font-semibold">Custom Shortcuts</h3>
+        <button
+          onClick={() => setIsCreating(!isCreating)}
+          className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-sm"
+        >
+          {isCreating ? 'Cancel' : 'Create New'}
+        </button>
       </div>
+
+      {isCreating && (
+        <div className="mb-4 p-3 bg-gray-600 rounded">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-white text-sm mb-1">Shortcut Name</label>
+              <input
+                type="text"
+                value={newShortcutName}
+                onChange={(e) => setNewShortcutName(e.target.value)}
+                placeholder="e.g., bakery pricing"
+                className="w-full bg-gray-800 text-white px-3 py-2 rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-white text-sm mb-1">
+                Formula (use 'x' for input value)
+              </label>
+              <input
+                type="text"
+                value={newShortcutFormula}
+                onChange={(e) => setNewShortcutFormula(e.target.value)}
+                placeholder="e.g., x * 1.65"
+                className="w-full bg-gray-800 text-white px-3 py-2 rounded"
+              />
+            </div>
+            <button
+              onClick={handleCreateShortcut}
+              className="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded"
+            >
+              Create Shortcut
+            </button>
+          </div>
+        </div>
+      )}
+
+      {shortcuts.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-4">
+          No shortcuts created yet. Create one to get started!
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {shortcuts.map((shortcut) => (
+            <div key={shortcut.id} className="bg-gray-600 rounded p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-white font-medium">{shortcut.name}</h4>
+                <button
+                  onClick={() => onDeleteShortcut(shortcut.id)}
+                  className="text-red-400 hover:text-red-300 text-sm"
+                  aria-label={`Delete ${shortcut.name} shortcut`}
+                >
+                  Delete
+                </button>
+              </div>
+              <p className="text-gray-300 text-sm mb-3">Formula: {shortcut.formula}</p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="any"
+                  value={executeValues[shortcut.id] || ''}
+                  onChange={(e) =>
+                    setExecuteValues({ ...executeValues, [shortcut.id]: e.target.value })
+                  }
+                  placeholder="Enter value"
+                  className="flex-1 bg-gray-800 text-white px-2 py-1 rounded text-sm"
+                />
+                <button
+                  onClick={() => handleExecuteShortcut(shortcut)}
+                  className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded text-sm"
+                >
+                  Calculate
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  )
+  );
 }

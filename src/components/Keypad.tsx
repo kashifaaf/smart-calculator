@@ -1,62 +1,83 @@
 interface KeypadProps {
-  onButtonPress: (value: string) => void
-  onClear: () => void
-  onEquals: () => void
+  onNumberClick: (number: string) => void;
+  onOperatorClick: (operator: string) => void;
+  onEqualsClick: () => void;
+  onClearClick: () => void;
+  onDeleteClick: () => void;
 }
 
-export function Keypad({ onButtonPress, onClear, onEquals }: KeypadProps) {
-  const buttons = [
-    ['C', '±', '%', '÷'],
-    ['7', '8', '9', '×'],
-    ['4', '5', '6', '-'],
-    ['1', '2', '3', '+'],
-    ['0', '', '.', '=']
-  ]
-
-  const getButtonClass = (button: string) => {
-    const base = 'h-16 rounded-xl font-medium text-lg transition-all duration-150 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-    
-    if (button === 'C') {
-      return `${base} bg-red-500 hover:bg-red-600 text-white`
-    }
-    if (['±', '%'].includes(button)) {
-      return `${base} bg-gray-200 hover:bg-gray-300 text-gray-800`
-    }
-    if (['÷', '×', '-', '+', '='].includes(button)) {
-      return `${base} bg-blue-500 hover:bg-blue-600 text-white`
-    }
-    if (button === '0') {
-      return `${base} bg-gray-100 hover:bg-gray-200 text-gray-800 col-span-2`
-    }
-    if (button === '') {
-      return `${base} invisible`
-    }
-    return `${base} bg-gray-100 hover:bg-gray-200 text-gray-800`
-  }
-
-  const handleClick = (button: string) => {
-    if (button === 'C') {
-      onClear()
-    } else if (button === '=') {
-      onEquals()
-    } else if (button !== '') {
-      onButtonPress(button)
-    }
-  }
-
+export function Keypad({
+  onNumberClick,
+  onOperatorClick,
+  onEqualsClick,
+  onClearClick,
+  onDeleteClick,
+}: KeypadProps) {
   return (
     <div className="grid grid-cols-4 gap-3">
-      {buttons.flat().map((button, index) => (
-        <button
-          key={index}
-          onClick={() => handleClick(button)}
-          className={getButtonClass(button)}
-          disabled={button === ''}
-          aria-label={button === '±' ? 'Plus minus' : button === '×' ? 'Multiply' : button === '÷' ? 'Divide' : button}
-        >
-          {button}
-        </button>
-      ))}
+      {/* Row 1 */}
+      <button onClick={onClearClick} className="calculator-button bg-red-600 hover:bg-red-500">
+        C
+      </button>
+      <button onClick={onDeleteClick} className="calculator-button">
+        ⌫
+      </button>
+      <button onClick={() => onOperatorClick('/')} className="calculator-button-operator">
+        ÷
+      </button>
+      <button onClick={() => onOperatorClick('*')} className="calculator-button-operator">
+        ×
+      </button>
+
+      {/* Row 2 */}
+      <button onClick={() => onNumberClick('7')} className="calculator-button">
+        7
+      </button>
+      <button onClick={() => onNumberClick('8')} className="calculator-button">
+        8
+      </button>
+      <button onClick={() => onNumberClick('9')} className="calculator-button">
+        9
+      </button>
+      <button onClick={() => onOperatorClick('-')} className="calculator-button-operator">
+        -
+      </button>
+
+      {/* Row 3 */}
+      <button onClick={() => onNumberClick('4')} className="calculator-button">
+        4
+      </button>
+      <button onClick={() => onNumberClick('5')} className="calculator-button">
+        5
+      </button>
+      <button onClick={() => onNumberClick('6')} className="calculator-button">
+        6
+      </button>
+      <button onClick={() => onOperatorClick('+')} className="calculator-button-operator">
+        +
+      </button>
+
+      {/* Row 4 */}
+      <button onClick={() => onNumberClick('1')} className="calculator-button">
+        1
+      </button>
+      <button onClick={() => onNumberClick('2')} className="calculator-button">
+        2
+      </button>
+      <button onClick={() => onNumberClick('3')} className="calculator-button">
+        3
+      </button>
+      <button onClick={onEqualsClick} className="calculator-button-equals row-span-2">
+        =
+      </button>
+
+      {/* Row 5 */}
+      <button onClick={() => onNumberClick('0')} className="calculator-button col-span-2">
+        0
+      </button>
+      <button onClick={() => onNumberClick('.')} className="calculator-button">
+        .
+      </button>
     </div>
-  )
+  );
 }

@@ -1,127 +1,97 @@
-'use client'
+'use client';
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback } from 'react';
 
 export function useCalculator() {
-  const [display, setDisplay] = useState('0')
-  const [expression, setExpression] = useState('')
-  const [previousValue, setPreviousValue] = useState<number | null>(null)
-  const [operator, setOperator] = useState<string | null>(null)
-  const [waitingForNewValue, setWaitingForNewValue] = useState(false)
+  const [display, setDisplay] = useState('0');
+  const [operation, setOperation] = useState<string | null>(null);
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [waitingForNewValue, setWaitingForNewValue] = useState(false);
+
+  const inputNumber = useCallback((num: string) => {
+    if (waitingForNewValue) {
+      setDisplay(num);
+      setWaitingForNewValue(false);
+    } else {
+      setDisplay(display === '0' ? num : display + num);
+    }
+  }, [display, waitingForNewValue]);
+
+  const inputOperator = useCallback((nextOperator: string) => {
+    const inputValue = parseFloat(display);
+
+    if (previousValue === null) {
+      setPreviousValue(inputValue);
+    } else if (operation) {
+      const currentValue = previousValue || 0;
+      const newValue = calculate(currentValue, inputValue, operation);
+
+      setDisplay(String(newValue));
+      setPreviousValue(newValue);
+    }
+
+    setWaitingForNewValue(true);
+    setOperation(nextOperator);
+  }, [display, operation, previousValue]);
+
+  const performCalculation = useCallback(() => {
+    const inputValue = parseFloat(display);
+
+    if (previousValue !== null && operation) {
+      const newValue = calculate(previousValue, inputValue, operation);
+      setDisplay(String(newValue));
+      setPreviousValue(null);
+      setOperation(null);
+      setWaitingForNewValue(true);
+      return newValue;
+    }
+
+    return inputValue;
+  }, [display, operation, previousValue]);
 
   const clear = useCallback(() => {
-    setDisplay('0')
-    setExpression('')
-    setPreviousValue(null)
-    setOperator(null)
-    setWaitingForNewValue(false)
-  }, [])
+    setDisplay('0');
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForNewValue(false);
+  }, []);
 
-  const calculate = useCallback(() => {
-    if (previousValue === null || operator === null) return
-
-    const currentValue = parseFloat(display)
-    let result: number
-
-    switch (operator) {
-      case '+':
-        result = previousValue + currentValue
-        break
-      case '-':
-        result = previousValue - currentValue
-        break
-      case '×':
-        result = previousValue * currentValue
-        break
-      case '÷':
-        result = currentValue !== 0 ? previousValue / currentValue : 0
-        break
-      case '%':
-        result = previousValue % currentValue
-        break
-      default:
-        return
-    }
-
-    setDisplay(result.toString())
-    setExpression(`${previousValue} ${operator} ${currentValue} = ${result}`)
-    setPreviousValue(null)
-    setOperator(null)
-    setWaitingForNewValue(true)
-  }, [display, previousValue, operator])
-
-  const handleInput = useCallback((input: string) => {
-    if (input === '.') {
-      if (display.includes('.')) return
-      if (waitingForNewValue) {
-        setDisplay('0.')
-        setWaitingForNewValue(false)
-      } else {
-        setDisplay(display + '.')
-      }
-      return
-    }
-
-    if (input === '±') {
-      const currentValue = parseFloat(display)
-      setDisplay((currentValue * -1).toString())
-      return
-    }
-
-    if (['+', '-', '×', '÷', '%'].includes(input)) {
-      const currentValue = parseFloat(display)
-      
-      if (previousValue !== null && operator !== null && !waitingForNewValue) {
-        calculate()
-        setPreviousValue(parseFloat(display))
-      } else {
-        setPreviousValue(currentValue)
-      }
-      
-      setOperator(input)
-      setExpression(`${currentValue} ${input}`)
-      setWaitingForNewValue(true)
-      return
-    }
-
-    // Number input
-    if (waitingForNewValue) {
-      setDisplay(input)
-      setWaitingForNewValue(false)
+  const deleteLast = useCallback(() => {
+    if (display.length > 1) {
+      setDisplay(display.slice(0, -1));
     } else {
-      setDisplay(display === '0' ? input : display + input)
+      setDisplay('0');
     }
-  }, [display, previousValue, operator, waitingForNewValue, calculate])
+  }, [display]);
 
-  const evaluateExpression = useCallback((expr: string): number => {
-    // Simple expression evaluator for voice commands
-    const cleanExpr = expr
-      .toLowerCase()
-      .replace(/times|multiply|multiplied by/g, '*')
-      .replace(/divided by|divide by/g, '/')
-      .replace(/plus/g, '+')
-      .replace(/minus/g, '-')
-      .replace(/percent/g, '/100')
-    
-    try {
-      // Basic safety check - only allow numbers and operators
-      if (!/^[\d\s+\-*/.()]+$/.test(cleanExpr)) {
-        throw new Error('Invalid expression')
-      }
-      
-      return Function('"use strict"; return (' + cleanExpr + ')')()
-    } catch (error) {
-      throw new Error('Could not evaluate expression')
-    }
-  }, [])
+  const setDisplayValue = useCallback((value: string) => {
+    setDisplay(value);
+    setWaitingForNewValue(true);
+  }, []);
 
   return {
     display,
-    expression,
-    handleInput,
+    operation,
+    inputNumber,
+    inputOperator,
+    calculate: performCalculation,
     clear,
-    calculate,
-    setDisplay,
-    evaluateExpression
+    deleteLast,
+    setDisplayValue,
+  };
+}
+
+function calculate(firstValue: number, secondValue: number, operation: string): number {
+  switch (operation) {
+    case '+':
+      return firstValue + secondValue;
+    case '-':
+      return firstValue - secondValue;
+    case '*':
+      return firstValue * secondValue;
+    case '/':
+      return secondValue !== 0 ? firstValue / secondValue : firstValue;
+    default:
+      return secondValue;
   }
 }
