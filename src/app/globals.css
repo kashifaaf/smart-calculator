@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-primary-dark: #1d4ed8;
+  --color-secondary: #6b7280;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --border-radius: 0.5rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.calculator-button {
+  @apply bg-white border border-gray-200 rounded-lg p-4 text-xl font-semibold 
+         hover:bg-gray-50 active:bg-gray-100 transition-colors duration-150
+         shadow-sm hover:shadow-md focus:outline-none focus:ring-2 
+         focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.calculator-button.operator {
+  @apply bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
+}
+
+.calculator-button.equals {
+  @apply bg-green-600 text-white hover:bg-green-700 active:bg-green-800;
+}
+
+.calculator-button.clear {
+  @apply bg-red-600 text-white hover:bg-red-700 active:bg-red-800;
+}
+
+.voice-recording {
+  @apply animate-pulse;
+}
+
+.shortcut-card {
+  @apply bg-white rounded-lg p-4 border border-gray-200 shadow-sm
+         hover:shadow-md transition-shadow duration-200;
+}
